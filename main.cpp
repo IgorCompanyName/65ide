@@ -11,6 +11,7 @@
 #include <time.h>
 #include <fstream>
 #include <ios>
+#include <thread>
 
 #define _RGB(r, g, b) b + (g << 8) + (r << 16)
 
@@ -36,6 +37,8 @@ uint8_t* rom;
 uint8_t* pixelbuffer;
 
 GLuint vbo, vao;
+
+int stopped = 0;
 
 const float vertices[] = {
     -1, -1, -1, 0, 0,
@@ -66,6 +69,7 @@ void writeFunc(uint16_t addr, uint8_t data) {
     else if(addr == 0xFD01)
         clearFrame();
 }
+
 
 static std::string getAppId() {
     std::stringstream ss;
@@ -120,6 +124,11 @@ void clearFrame() {
         pixelbuffer[i] = 0;
     }
     drawFrame();
+}
+void run_cpu(mos6502 cpu, uint64_t &cycles) {
+    while(!stopped) {
+        cpu.Run(1, cycles, mos6502::CycleMethod::INST_COUNT);
+    }
 }
 int main(int argc, char** argv) {
     ram = (uint8_t*)malloc(K16);
@@ -177,10 +186,10 @@ int main(int argc, char** argv) {
 
     cpu.Reset();
 
+    std::thread cpu_thread(run_cpu, cpu, std::ref(cycles));
+
     while(!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT);
-
-        cpu.Run(1, cycles, mos6502::CycleMethod::INST_COUNT);
 
         shader.use();
         glBindVertexArray(vao);
@@ -192,8 +201,11 @@ int main(int argc, char** argv) {
         window.swapBuffers();
         events.pollEvents();
     }
-    std::cout << "Closed window. End." << std::endl;
+    stopped = 1;
 
+    cpu_thread.join();
+
+    std::cout << "Closed window. End.\nQuit after " << cycles << " cycles" << std::endl;
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
