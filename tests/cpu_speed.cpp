@@ -15,7 +15,10 @@ void run_cpu(mos6502 cpu, uint64_t &cycles) {
     while(!stopped) {
         cpu.Run(1, cycles, mos6502::CycleMethod::INST_COUNT);
         for(int i = 0; i < 5500; i++) { // makes about 1 Million cycles per second
-
+            // Seems like it may be specific for different types of CPUs
+            // I will probably change it to nanosleep in the future.
+            // For now i will stick to this
+            // TODO: Change delay method
         }
     }
 }
