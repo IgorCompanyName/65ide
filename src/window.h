@@ -1,28 +1,17 @@
 #pragma once
-#define LINUX_BUILD
-#ifdef LINUX_BUILD
-#include <X11/Xlib.h>
-#elif WINDOWS_BUILD
-#include <Windows.h>
-#else
-#error Undefined build type. Specify: LINUX_BUILD or WINDOWS_BUILD
-#endif
+#include "glad/glad.h"
+#include <GLFW/glfw3.h>
 
-typedef struct _Xwindow {
-    Display* display;
-    Window rootWindow;
-    Window window;
-    GC gc;
-    unsigned int width, height;
-    unsigned int depth;
-    Visual *visual;
-    XSetWindowAttributes attributes;
-} Xwindow;
-
-class EWindow {
+class Window {
 public:
-    static Xwindow create_window_and_gc(
-        Display* display, int width, int height, int x, int y, long event_mask);
-    static GC create_gc(Display* display, Xwindow win, int reverse_video);
-    static int clear_window(Xwindow window);
+    Window(int width, int height, const char* title);
+    ~Window();
+
+    bool isNull();
+    bool shouldClose();
+    void setShouldClose(bool);
+    void swapBuffers();
+    void terminate();
+
+    GLFWwindow* window = nullptr;
 };
