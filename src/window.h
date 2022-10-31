@@ -13,13 +13,16 @@ typedef struct _Xwindow {
     Window rootWindow;
     Window window;
     GC gc;
+    unsigned int width, height;
+    unsigned int depth;
+    Visual *visual;
+    XSetWindowAttributes attributes;
 } Xwindow;
 
 class EWindow {
 public:
     static Xwindow create_window_and_gc(
-        Display* display, int width, int height, int x, int y
-        );
+        Display* display, int width, int height, int x, int y, long event_mask);
     static GC create_gc(Display* display, Xwindow win, int reverse_video);
     static int clear_window(Xwindow window);
 };
