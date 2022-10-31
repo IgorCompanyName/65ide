@@ -16,8 +16,9 @@ Window::Window(int w, int h, const char* t) {
         return;
     }
     glfwMakeContextCurrent(window);
-    if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize GLAD" << std::endl;
+    GLenum err = glewInit();
+    if(err != GLEW_OK) {
+        std::cerr << "Error: " << glewGetErrorString(err) << std::endl;
         glfwDestroyWindow(window);
         window = nullptr;
         return;
