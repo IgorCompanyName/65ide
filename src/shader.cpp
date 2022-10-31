@@ -75,3 +75,11 @@ void Shader::use() {
 Shader::~Shader() {
     glDeleteProgram(id);
 }
+void Shader::uniform2(const char* name, vec2 v) {
+    int loc = glGetUniformLocation(id, name);
+    glUniform2f(loc, v.x, v.y);
+}
+void Shader::uniform2(const char* name, float v0, float v1) {
+    int loc = glGetUniformLocation(id, name);
+    glUniform2f(loc, v0, v1);
+}
