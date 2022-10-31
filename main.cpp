@@ -12,6 +12,7 @@
 #include <fstream>
 #include <ios>
 #include <thread>
+#include <chrono>
 
 #define _RGB(r, g, b) b + (g << 8) + (r << 16)
 
@@ -128,6 +129,9 @@ void clearFrame() {
 void run_cpu(mos6502 cpu, uint64_t &cycles) {
     while(!stopped) {
         cpu.Run(1, cycles, mos6502::CycleMethod::INST_COUNT);
+        for(int i = 0; i < 6000; i++) { // makes about 1 Million cycles per second
+
+        }
     }
 }
 int main(int argc, char** argv) {
