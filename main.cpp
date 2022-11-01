@@ -17,9 +17,9 @@
 
 /*
  * Memory mapping for 6502 IDE
- * RAM[0x0000 until 0x6D3E inc]    -rw
- * RAND[0x6D3F only]               -ro
- * SCREEN[0x6D40 until 0x7FFF inc] -wo
+ * RAM[0x0000 until 0x6FFE inc]    -rw
+ * RAND[0x6FFF only]               -ro
+ * SCREEN[0x7000 until 0x7FFF inc] -wo
  * ROM[0x8000 until 0xFFFF inc]    -ro {
  *      INSTRUCTION_ROM[0x8000 until 0xFF99 inc]
  *      NMI[0xFF9A until 0xFF99 inc]
@@ -32,6 +32,13 @@
  *          IRQ     0xFFFE + 0xFFFF
  * }
  */
+#define RAM_OFFSET 0
+#define RAM_SIZE 0x6FFF
+#define RAND_OFFSET 0x6FFF
+#define SCREEN_OFFSET 0x7000
+#define ROM_OFFSET 0x8000
+#define ROM_SIZE 0x8000
+#define CLEAR_SCREEN_OFFSET 0xFD01
 
 #define _RGB(r, g, b) b + (g << 8) + (r << 16)
 
@@ -46,7 +53,7 @@
 #define WIDTH 64
 #define HEIGHT 64
 #define SIZE_MULTIPLIER 8
-#define BUFFER_LENGTH WIDTH * HEIGHT
+#define BUFFER_LENGTH 0x1000
 
 #define ORGNAME "migstudio"
 #define APPGROUP "65ide"
@@ -58,46 +65,46 @@ uint8_t* pixelbuffer;
 
 GLuint vbo, vao;
 
-int stopped = 0, paused = 0;
+int stopped = 0, paused = 0, canPause = 1;
 
 const float vertices[] = {
-    -1, -1, -1, 0, 0,
-    1, -1, -1, 1, 0,
-    -1, 1, -1, 0, 1,
+    -1, -1, -1, 0, 1,
+    1, -1, -1, 1, 1,
+    -1, 1, -1, 0, 0,
 
-    -1, 1, -1, 0, 1,
-    1, -1, -1, 1, 0,
-    1, 1, -1, 1, 1
+    -1, 1, -1, 0, 0,
+    1, -1, -1, 1, 1,
+    1, 1, -1, 1, 0
 };
 void drawFrame();
 void clearFrame();
 
 uint8_t readFunc(uint16_t addr) { // Explicitly specifying memory addressing
-    if(addr >= 0x0000 && addr <= 0x6D3E)
-        return ram[addr];
-    else if(addr >= 0x8000 && addr <= 0xFFFF)
-        return rom[addr - 0x8000];
-    else if(addr == 0x6D3F)
+    if(addr >= RAM_OFFSET && addr <= RAM_OFFSET + RAM_SIZE - 1)
+        return ram[addr + RAM_OFFSET];
+    else if(addr >= ROM_OFFSET && addr <= ROM_OFFSET + ROM_SIZE - 1)
+        return rom[addr - ROM_OFFSET];
+    else if(addr == RAND_OFFSET)
         return rand() % 256;
     return 0x00;
 }
 void writeFunc(uint16_t addr, uint8_t data) {
-    if(addr >= 0x0000 && addr <= 0x6D3E)
+    if(addr >= RAM_OFFSET && addr <= RAM_OFFSET + RAM_SIZE - 1)
         ram[addr] = data;
-    else if(addr >= 0x6D40 && addr <= 0x6D40 + BUFFER_LENGTH)
-        pixelbuffer[addr - 0x6D40] = data;
-    else if(addr == 0x6D3F)
+    else if(addr >= SCREEN_OFFSET && addr <= SCREEN_OFFSET + BUFFER_LENGTH - 1)
+        pixelbuffer[addr - SCREEN_OFFSET] = data;
+    else if(addr == RAND_OFFSET)
         srand(data);
-    else if(addr == 0xFD01)
+    else if(addr == CLEAR_SCREEN_OFFSET)
         clearFrame();
 }
 void writethrough(uint16_t addr, uint8_t data) {
-    if(addr >= 0x0000 && addr <= 0x6D3F)
+    if(addr >= RAM_OFFSET && addr <= RAM_OFFSET + RAM_SIZE - 1)
         ram[addr] = data;
-    else if(addr >= 0x6D40 && addr <= 0x6D40 + BUFFER_LENGTH)
-        pixelbuffer[addr - 0x6D40] = data;
-    else if(addr >= 0x8000 && addr <= 0xFFFF)
-        rom[addr - 0x8000] = data;
+    else if(addr >= SCREEN_OFFSET && addr <= SCREEN_OFFSET + BUFFER_LENGTH - 1)
+        pixelbuffer[addr - SCREEN_OFFSET] = data;
+    else if(addr >= ROM_OFFSET && addr <= ROM_OFFSET + ROM_SIZE - 1)
+        rom[addr - ROM_OFFSET] = data;
 }
 static std::string getAppId() {
     std::stringstream ss;
@@ -117,7 +124,7 @@ void run_cpu(mos6502 cpu, uint64_t &cycles) {
     while(!stopped) {
         if(!paused)
             cpu.Run(1, cycles, mos6502::CycleMethod::INST_COUNT);
-        for(int i = 0; i < 3000; i++) {}
+        for(int i = 0; i < 100; i++) {}
     }
 }
 std::vector<uint8_t> loadProgram(const char* path) {
@@ -141,8 +148,8 @@ std::vector<uint8_t> loadProgram(const char* path) {
     return bytes;
 }
 int main(int argc, char** argv) {
-    ram = (uint8_t*)malloc(0x6D40);
-    rom = (uint8_t*)malloc(0x8000);
+    ram = (uint8_t*)malloc(RAM_SIZE);
+    rom = (uint8_t*)malloc(ROM_SIZE);
     pixelbuffer = (uint8_t*)malloc(BUFFER_LENGTH); // allocate screen
 
     std::string appid = getAppId();
@@ -181,7 +188,7 @@ int main(int argc, char** argv) {
     Shader shader("/home/igor/Documents/Projects/65IDE/res/vertex.glsl", 
         "/home/igor/Documents/Projects/65IDE/res/fragment.glsl");
 
-    glClearColor(0, 0, 0, 0);
+    glClearColor(1, 0, 1, 0);
 
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
@@ -230,11 +237,14 @@ int main(int argc, char** argv) {
 
         if(events.getKeyPress(GLFW_KEY_ESCAPE))
             window.setShouldClose(true);
-        if(events.getKeyPress(GLFW_KEY_SPACE))
-            paused = 1;
-        if(events.getKeyRelease(GLFW_KEY_SPACE))
-            paused = 0;
-
+        if(events.getKeyPress(GLFW_KEY_SPACE)) {
+            if(canPause != 0) {
+                paused = !paused;
+                canPause = 0;
+            }
+        } else {
+            canPause = 1;
+        }
         window.swapBuffers();
         events.pollEvents();
     }
