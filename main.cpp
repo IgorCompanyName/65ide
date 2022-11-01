@@ -13,6 +13,7 @@
 #include <ios>
 #include <thread>
 #include <chrono>
+#include <vector>
 
 #define _RGB(r, g, b) b + (g << 8) + (r << 16)
 
@@ -58,6 +59,8 @@ uint8_t readFunc(uint16_t addr) { // Explicitly specifying memory addressing
         return ram[addr];
     else if(addr >= 0x8000 && addr <= 0xFFFF)
         return rom[addr - 0x8000];
+    else if(addr == 0xFD02)
+        return rand() % 256;
     return 0x00;
 }
 void writeFunc(uint16_t addr, uint8_t data) {
@@ -70,8 +73,6 @@ void writeFunc(uint16_t addr, uint8_t data) {
     else if(addr == 0xFD01)
         clearFrame();
 }
-
-
 static std::string getAppId() {
     std::stringstream ss;
 
@@ -81,44 +82,9 @@ static std::string getAppId() {
 
     return ss.str();
 }
-void process_mem_usage(double& vm_usage, double& resident_set)
-{
-   using std::ios_base;
-   using std::ifstream;
-   using std::string;
-
-   vm_usage     = 0.0;
-   resident_set = 0.0;
-
-   // 'file' stat seems to give the most reliable results
-   //
-   ifstream stat_stream("/proc/self/stat",ios_base::in);
-
-   // dummy vars for leading entries in stat that we don't care about
-   //
-   string pid, comm, state, ppid, pgrp, session, tty_nr;
-   string tpgid, flags, minflt, cminflt, majflt, cmajflt;
-   string utime, stime, cutime, cstime, priority, nice;
-   string O, itrealvalue, starttime;
-
-   // the two fields we want
-   //
-   unsigned long vsize;
-   long rss;
-
-   stat_stream >> pid >> comm >> state >> ppid >> pgrp >> session >> tty_nr
-               >> tpgid >> flags >> minflt >> cminflt >> majflt >> cmajflt
-               >> utime >> stime >> cutime >> cstime >> priority >> nice
-               >> O >> itrealvalue >> starttime >> vsize >> rss; // don't care about the rest
-
-   stat_stream.close();
-
-   long page_size_kb = sysconf(_SC_PAGE_SIZE) / 1024; // in case x86-64 is configured to use 2MB pages
-   vm_usage     = vsize / 1024.0;
-   resident_set = rss * page_size_kb;
-}
 void drawFrame() {
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R3_G3_B2, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE_3_3_2, pixelbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R3_G3_B2, WIDTH, HEIGHT, 0, GL_RGB, 
+        GL_UNSIGNED_BYTE_3_3_2, pixelbuffer);
 }
 void clearFrame() {
     for(unsigned int i = 0; i < BUFFER_LENGTH; i++) {
@@ -128,19 +94,51 @@ void clearFrame() {
 }
 void run_cpu(mos6502 cpu, uint64_t &cycles) {
     while(!stopped) {
-        cpu.Run(1, cycles, mos6502::CycleMethod::INST_COUNT);
-        for(int i = 0; i < 5500; i++) { // makes about 1 Million cycles per second
-
-        }
+        cpu.Run(1, cycles);
+        for(int i = 0; i < 3000; i++) {}
     }
+}
+std::vector<uint8_t> loadProgram(const char* path) {
+    using namespace std;
+    ifstream file;
+    file.open(path, ios::binary | ios::in);
+    if(!file)
+    {
+        std::cerr << "Failed to load file!" << std::endl;
+        return vector<uint8_t>();
+    }
+    vector<uint8_t> bytes;
+    while(!file.eof()) {
+        uint8_t byte;
+
+        byte = file.get();
+
+        bytes.push_back(byte);
+    }
+    file.close();
+    return bytes;
 }
 int main(int argc, char** argv) {
     ram = (uint8_t*)malloc(K16);
     rom = (uint8_t*)malloc(K32);
     pixelbuffer = (uint8_t*)malloc(BUFFER_LENGTH); // allocate screen
 
-    const int width = WIDTH * SIZE_MULTIPLIER, height = HEIGHT * SIZE_MULTIPLIER;
-    Window window(width, height, "OpenGL App");
+    std::string appid = getAppId();
+    std::vector<uint8_t> programBytes;
+    if(argc == 2) {
+        programBytes = loadProgram(argv[1]);
+    } else {
+        programBytes = loadProgram("/home/igor/Documents/Projects/65IDE/test");
+    }
+    int size = programBytes.size() * sizeof(uint8_t);
+
+    for(int i = 0; i < size; i++) {
+        rom[i] = programBytes[i];
+    }
+
+    const int width = WIDTH * SIZE_MULTIPLIER, 
+        height = HEIGHT * SIZE_MULTIPLIER;
+    Window window(width, height, appid.c_str());
     Events events(window.window);
 
     std::cout << "GLSL " << glGetString(GL_SHADING_LANGUAGE_VERSION) << "\nOpenGL " <<
