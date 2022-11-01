@@ -10,3 +10,6 @@ void Events::pollEvents() {
 bool Events::getKeyPress(int keycode) {
     return glfwGetKey(window, keycode) == GLFW_PRESS;
 }
+bool Events::getKeyRelease(int keycode) {
+    return glfwGetKey(window, keycode) == GLFW_RELEASE;
+}

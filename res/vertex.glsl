@@ -6,5 +6,5 @@ out vec2 TexCoord;
 
 void main() {
     gl_Position = vec4(pos, 1);
-    TexCoord = vec2(texCoord.x, -texCoord.y); // flip y for correct display
+    TexCoord = vec2(texCoord.x, 1 - texCoord.y); // flip y for correct display
 }

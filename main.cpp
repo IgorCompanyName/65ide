@@ -43,8 +43,8 @@
 #define K2 2048
 #define K1 1024
 
-#define WIDTH 80
-#define HEIGHT 60
+#define WIDTH 64
+#define HEIGHT 64
 #define SIZE_MULTIPLIER 8
 #define BUFFER_LENGTH WIDTH * HEIGHT
 
@@ -58,7 +58,7 @@ uint8_t* pixelbuffer;
 
 GLuint vbo, vao;
 
-int stopped = 0;
+int stopped = 0, paused = 0;
 
 const float vertices[] = {
     -1, -1, -1, 0, 0,
@@ -84,15 +84,17 @@ uint8_t readFunc(uint16_t addr) { // Explicitly specifying memory addressing
 void writeFunc(uint16_t addr, uint8_t data) {
     if(addr >= 0x0000 && addr <= 0x6D3E)
         ram[addr] = data;
-    else if(addr >= 0x6D40 && addr <= 0x7FFF)
+    else if(addr >= 0x6D40 && addr <= 0x6D40 + BUFFER_LENGTH)
         pixelbuffer[addr - 0x6D40] = data;
+    else if(addr == 0x6D3F)
+        srand(data);
     else if(addr == 0xFD01)
         clearFrame();
 }
 void writethrough(uint16_t addr, uint8_t data) {
     if(addr >= 0x0000 && addr <= 0x6D3F)
         ram[addr] = data;
-    else if(addr >= 0x6D40 && addr <= 0x7FFF)
+    else if(addr >= 0x6D40 && addr <= 0x6D40 + BUFFER_LENGTH)
         pixelbuffer[addr - 0x6D40] = data;
     else if(addr >= 0x8000 && addr <= 0xFFFF)
         rom[addr - 0x8000] = data;
@@ -113,7 +115,8 @@ void clearFrame() {
 }
 void run_cpu(mos6502 cpu, uint64_t &cycles) {
     while(!stopped) {
-        cpu.Run(1, cycles, mos6502::CycleMethod::INST_COUNT);
+        if(!paused)
+            cpu.Run(1, cycles, mos6502::CycleMethod::INST_COUNT);
         for(int i = 0; i < 3000; i++) {}
     }
 }
@@ -227,6 +230,10 @@ int main(int argc, char** argv) {
 
         if(events.getKeyPress(GLFW_KEY_ESCAPE))
             window.setShouldClose(true);
+        if(events.getKeyPress(GLFW_KEY_SPACE))
+            paused = 1;
+        if(events.getKeyRelease(GLFW_KEY_SPACE))
+            paused = 0;
 
         window.swapBuffers();
         events.pollEvents();

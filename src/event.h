@@ -7,6 +7,7 @@ class Events {
 public:
     Events(GLFWwindow*);
     bool getKeyPress(int keycode);
+    bool getKeyRelease(int keycode);
     void pollEvents();
 private:
     GLFWwindow* window;
