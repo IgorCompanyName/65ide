@@ -15,6 +15,24 @@
 #include <chrono>
 #include <vector>
 
+/*
+ * Memory mapping for 6502 IDE
+ * RAM[0x0000 until 0x6D3E inc]    -rw
+ * RAND[0x6D3F only]               -ro
+ * SCREEN[0x6D40 until 0x7FFF inc] -wo
+ * ROM[0x8000 until 0xFFFF inc]    -ro {
+ *      INSTRUCTION_ROM[0x8000 until 0xFF99 inc]
+ *      NMI[0xFF9A until 0xFF99 inc]
+ *      RESET[0xFFBA until 0xFFB9 inc]
+ *      IRQ/BRK[0xFFDA until 0xFFF9 inc]
+ *      
+ *      VECTORS:
+ *          NMI     0xFFFA + 0xFFFB
+ *          RESET   0xFFFC + 0xFFFD
+ *          IRQ     0xFFFE + 0xFFFF
+ * }
+ */
+
 #define _RGB(r, g, b) b + (g << 8) + (r << 16)
 
 #define K64 65536
@@ -55,16 +73,16 @@ void drawFrame();
 void clearFrame();
 
 uint8_t readFunc(uint16_t addr) { // Explicitly specifying memory addressing
-    if(addr >= 0x0000 && addr <= 0x6D3F)
+    if(addr >= 0x0000 && addr <= 0x6D3E)
         return ram[addr];
     else if(addr >= 0x8000 && addr <= 0xFFFF)
         return rom[addr - 0x8000];
-    else if(addr == 0xFD02)
+    else if(addr == 0x6D3F)
         return rand() % 256;
     return 0x00;
 }
 void writeFunc(uint16_t addr, uint8_t data) {
-    if(addr >= 0x0000 && addr <= 0x6D3F)
+    if(addr >= 0x0000 && addr <= 0x6D3E)
         ram[addr] = data;
     else if(addr >= 0x6D40 && addr <= 0x7FFF)
         pixelbuffer[addr - 0x6D40] = data;
