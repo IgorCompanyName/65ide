@@ -55,7 +55,7 @@ void drawFrame();
 void clearFrame();
 
 uint8_t readFunc(uint16_t addr) { // Explicitly specifying memory addressing
-    if(addr >= 0x0000 && addr <= 0x3FFF)
+    if(addr >= 0x0000 && addr <= 0x6D3F)
         return ram[addr];
     else if(addr >= 0x8000 && addr <= 0xFFFF)
         return rom[addr - 0x8000];
@@ -64,14 +64,20 @@ uint8_t readFunc(uint16_t addr) { // Explicitly specifying memory addressing
     return 0x00;
 }
 void writeFunc(uint16_t addr, uint8_t data) {
-    if(addr >= 0x0000 && addr <= 0x3FFF)
+    if(addr >= 0x0000 && addr <= 0x6D3F)
         ram[addr] = data;
-    else if(addr >= 0x4000 && addr <= 0x52BF)
-        pixelbuffer[addr - 0x4000];
-    else if(addr == 0xFD00)
-        drawFrame();
+    else if(addr >= 0x6D40 && addr <= 0x7FFF)
+        pixelbuffer[addr - 0x6D40] = data;
     else if(addr == 0xFD01)
         clearFrame();
+}
+void writethrough(uint16_t addr, uint8_t data) {
+    if(addr >= 0x0000 && addr <= 0x6D3F)
+        ram[addr] = data;
+    else if(addr >= 0x6D40 && addr <= 0x7FFF)
+        pixelbuffer[addr - 0x6D40] = data;
+    else if(addr >= 0x8000 && addr <= 0xFFFF)
+        rom[addr - 0x8000] = data;
 }
 static std::string getAppId() {
     std::stringstream ss;
@@ -82,19 +88,14 @@ static std::string getAppId() {
 
     return ss.str();
 }
-void drawFrame() {
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R3_G3_B2, WIDTH, HEIGHT, 0, GL_RGB, 
-        GL_UNSIGNED_BYTE_3_3_2, pixelbuffer);
-}
 void clearFrame() {
     for(unsigned int i = 0; i < BUFFER_LENGTH; i++) {
         pixelbuffer[i] = 0;
     }
-    drawFrame();
 }
 void run_cpu(mos6502 cpu, uint64_t &cycles) {
     while(!stopped) {
-        cpu.Run(1, cycles);
+        cpu.Run(1, cycles, mos6502::CycleMethod::INST_COUNT);
         for(int i = 0; i < 3000; i++) {}
     }
 }
@@ -119,8 +120,8 @@ std::vector<uint8_t> loadProgram(const char* path) {
     return bytes;
 }
 int main(int argc, char** argv) {
-    ram = (uint8_t*)malloc(K16);
-    rom = (uint8_t*)malloc(K32);
+    ram = (uint8_t*)malloc(0x6D40);
+    rom = (uint8_t*)malloc(0x8000);
     pixelbuffer = (uint8_t*)malloc(BUFFER_LENGTH); // allocate screen
 
     std::string appid = getAppId();
@@ -130,10 +131,16 @@ int main(int argc, char** argv) {
     } else {
         programBytes = loadProgram("/home/igor/Documents/Projects/65IDE/test");
     }
-    int size = programBytes.size() * sizeof(uint8_t);
+    int size = programBytes.size() * sizeof(uint8_t) - 1;
+
+    if(size != 65536)
+    {
+        std::cerr << "File size is wrong!" << std::endl;
+        return -1;
+    }
 
     for(int i = 0; i < size; i++) {
-        rom[i] = programBytes[i];
+        writethrough(i, programBytes[i]);
     }
 
     const int width = WIDTH * SIZE_MULTIPLIER, 
@@ -193,6 +200,9 @@ int main(int argc, char** argv) {
     while(!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT);
 
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R3_G3_B2, WIDTH, HEIGHT, 0, GL_RGB, 
+        GL_UNSIGNED_BYTE_3_3_2, pixelbuffer);
+
         shader.use();
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -215,10 +225,6 @@ int main(int argc, char** argv) {
     glDeleteBuffers(1, &vbo);
     glDeleteVertexArrays(1, &vao);
     glDeleteTextures(1, &tex);
-
-    free(ram);
-    free(rom);
-    free(pixelbuffer);
 
     return 0;
 }

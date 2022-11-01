@@ -1,4 +1,10 @@
-project(ide65 C CXX)
+set(VERSION_MAJOR "0")
+set(VERSION_MINOR "2")
+set(VERSION_PATCH "1")
+set(VERSION_STRING "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+
+cmake_policy(SET CMP0048 NEW)
+project(ide65 VERSION "${VERSION_STRING}" LANGUAGES C CXX)
 
 cmake_minimum_required(VERSION 3.10)
 

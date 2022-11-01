@@ -16,6 +16,7 @@ void run_cpu(mos6502 cpu, uint64_t &cycles) {
         cpu.Run(1, cycles);
         for(int i = 0; i < 3000; i++) {} // seems like something more precise is impossible
     } // TODO: find better way to delay loop, maybe there is...
+    // TODO: for release this doesn't work because of optimizations
 }
 int test_speed() {
     uint64_t cycles = 0;
