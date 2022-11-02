@@ -17,8 +17,6 @@ add_library(glew include/GL/glew.h src/GL/glew.c)
 
 include_directories(include src)
 
-enable_testing()
-
 add_subdirectory(tests)
 
 add_executable(main main.cpp src/mos6502.cpp
